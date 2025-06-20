@@ -1,0 +1,48 @@
+{
+    "version": 3,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 22,
+        "patch": 1
+    },
+    "configurePresets": [
+        {
+            "name": "default",
+            "hidden": true,
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+
+            "cacheVariables": {
+                "CMAKE_EXPORT_COMPILE_COMMANDS": true,
+                "CMAKE_C_COMPILER": "clang",
+                "CMAKE_CXX_COMPILER": "clang++"
+            }
+        },
+        {
+            "name": "Debug",
+            "inherits": "default",
+            "cacheVariables": {
+                "BUILD_SHARED_LIBS": "OFF",
+                "CMAKE_BUILD_TYPE": "Debug",
+                "TRACY_ENABLE": "ON"
+            }
+        },
+        {
+            "name": "Release",
+            "inherits": "default",
+            "cacheVariables": {
+                "BUILD_SHARED_LIBS": "OFF",
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        },
+        {
+            "name": "Profiling",
+            "inherits": "default",
+            "cacheVariables": {
+                "BUILD_SHARED_LIBS": "OFF",
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+                "TRACY_ENABLE": "ON"
+            }
+        }
+    ]
+}

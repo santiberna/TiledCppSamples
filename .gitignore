@@ -3,6 +3,14 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/main/VisualStudio.gitignore
 
+# VSCode
+
+.vscode/
+
+# Build folders
+
+[Bb]uild/ 
+
 # User-specific files
 *.rsuser
 *.suo
