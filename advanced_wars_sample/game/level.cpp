@@ -1,93 +1,60 @@
 #include <game/level.hpp>
-#include <game/unit.hpp>
 
-TileSetData::TileSetData(Renderer& renderer, const tpp::TileSet& tileset)
+Level LoadLevel(Renderer& renderer, const std::string& map_path)
 {
-    auto& image = tileset.getImage();
-    texture = Texture::FromData(renderer, image.getData(), { image.getSize().x, image.getSize().y }).value();
+    Level level {};
+    level.map = tpp::TileMap::fromTMX(map_path).value();
 
-    for (uint32_t i = 0; i < tileset.getTileCount(); i++)
+    for (auto& tileset : level.map.getTileSets())
     {
-        if (auto* meta = tileset.getTileAnimation(i))
+        level.tile_set_data.emplace_back(CreateTileSetDrawData(renderer, tileset));
+    }
+
+    auto map_size = level.map.getMapGridSize();
+    level.tile_travel_costs = tpp::Array2D<uint8_t>(map_size.x, map_size.y, 0);
+
+    auto& layer = level.map.getTileLayers().front();
+
+    for (auto it = layer.tile_ids.begin(); it != layer.tile_ids.end(); ++it)
+    {
+        auto& tile = *it;
+        auto& set = level.map.getTileSets().at(tile.getTileset());
+
+        if (auto* props = set.getTileProperties(tile.getId()))
         {
-            animation_states.emplace(i, AnimationState {});
+            if (props->has<bool>("Obstacle"))
+            {
+                auto travel_cost = props->get<bool>("Obstacle");
+                level.tile_travel_costs.at(it.getIndices()) = travel_cost ? 1 : 0;
+            }
         }
     }
+
+    return level;
 }
 
-void TileSetData::UpdateAnimations(const tpp::TileSet& tileset, DeltaMS delta)
+void DrawLevel(Renderer& renderer, Level& level, const FrameCamera& camera, DeltaMS delta)
 {
-    for (auto&& [index, state] : animation_states)
+    for (uint32_t i = 0; i < level.tile_set_data.size(); i++)
     {
-        auto anim = tileset.getTileAnimation(index);
-        assert(anim);
-
-        if (anim->frames.empty())
-            return;
-
-        state.accum += delta;
-
-        auto current_delay = DeltaMS(anim->frames.at(state.current_frame).duration_ms);
-
-        while (state.accum > current_delay)
-        {
-            state.accum -= DeltaMS(current_delay);
-
-            state.current_frame = (state.current_frame + 1) % anim->frames.size();
-            current_delay = DeltaMS(anim->frames.at(state.current_frame).duration_ms);
-        }
-    }
-}
-
-SDL_FRect TileSetData::GetTileRect(const tpp::TileSet& tileset, uint32_t tile_id)
-{
-    if (auto it = animation_states.find(tile_id); it != animation_states.end())
-    {
-        auto frame = it->second.current_frame;
-        auto* anim = tileset.getTileAnimation(tile_id);
-
-        tile_id = anim->frames.at(frame).tile_id;
+        UpdateAnimationData(level.map.getTileSets().at(i), level.tile_set_data.at(i), delta);
     }
 
-    auto rect = tileset.getTileRect(tile_id).value();
-
-    SDL_FRect src_rect {
-        (float)rect.start.x, (float)rect.start.y, (float)rect.size.x, (float)rect.size.y
-    };
-
-    return src_rect;
-}
-
-Level::Level(Renderer& renderer, const std::string& source_tmx)
-{
-    map = tpp::TileMap::fromTMX(source_tmx).value();
-
-    for (auto& tileset : map.getTileSets())
+    for (auto& layer : level.map.getTileLayers())
     {
-        tilesets.emplace_back(TileSetData(renderer, tileset));
-    }
-
-    units.resize(map.getMapGridSize().x * map.getMapGridSize().y);
-}
-
-void Level::RenderMap(Renderer& renderer, const FrameCamera& camera, DeltaMS delta)
-{
-    for (uint32_t i = 0; i < tilesets.size(); i++)
-    {
-        tilesets.at(i).UpdateAnimations(map.getTileSets().at(i), delta);
-    }
-
-    for (auto& layer : map.getTileLayers())
-    {
-        auto map_tile_size = map.getMapTileSize();
+        auto map_tile_size = level.map.getMapTileSize();
 
         for (auto it = layer.tile_ids.begin(); it != layer.tile_ids.end(); ++it)
         {
             auto tile_id = *it;
             auto coords = it.getIndices();
 
-            auto src_rect = tilesets.at(tile_id.getTileset()).GetTileRect(map.getTileSets().at(tile_id.getTileset()), tile_id.getId());
-            auto& texture = tilesets.at(tile_id.getTileset()).texture;
+            auto src_rect = GetTileRect(
+                level.map.getTileSets().at(tile_id.getTileset()),
+                level.tile_set_data.at(tile_id.getTileset()),
+                tile_id.getId());
+
+            auto& texture = level.tile_set_data.at(tile_id.getTileset()).spritesheet_texture;
 
             SDL_FRect dst_rect {
                 (float)(coords.x * map_tile_size.x),
@@ -98,63 +65,5 @@ void Level::RenderMap(Renderer& renderer, const FrameCamera& camera, DeltaMS del
 
             renderer.RenderTextureRect(texture, camera.ToScreenRect(dst_rect), &src_rect);
         }
-    }
-
-    for (uint32_t j = 0; j < map.getMapGridSize().y; j++)
-    {
-        for (uint32_t i = 0; i < map.getMapGridSize().x; i++)
-        {
-
-            auto& unit = units.at(i + j * map.getMapGridSize().x);
-            if (unit)
-            {
-                unit->RenderUnit(renderer, *this, { i, j }, camera);
-            }
-        }
-    }
-}
-
-std::optional<glm::uvec2> Level::GetTileFromPos(const glm::ivec2& pos) const
-{
-    if (pos.x < 0.0f || pos.y < 0.0f)
-        return std::nullopt;
-
-    auto tile_size = map.getMapTileSize();
-    uint32_t x = pos.x / tile_size.x;
-    uint32_t y = pos.y / tile_size.y;
-
-    auto map_size = map.getMapGridSize();
-
-    if (x >= map_size.x || y >= map_size.y)
-        return std::nullopt;
-
-    return glm::uvec2 { x, y };
-}
-
-void Level::AddUnit(const glm::uvec2& coords, const Unit& unit)
-{
-    auto map_grid_size = map.getMapGridSize();
-    units.at(coords.x + coords.y * map_grid_size.x) = std::make_unique<Unit>(unit);
-}
-
-Unit* Level::GetUnit(const glm::uvec2& coords) const
-{
-    auto map_grid_size = map.getMapGridSize();
-    return units.at(coords.x + coords.y * map_grid_size.x).get();
-}
-
-void Level::RemoveUnit(const glm::uvec2& coords)
-{
-    auto map_grid_size = map.getMapGridSize();
-    units.at(coords.x + coords.y * map_grid_size.x).reset();
-}
-
-void Level::MoveUnit(const glm::uvec2& from, const glm::uvec2& to)
-{
-    auto map_grid_size = map.getMapGridSize();
-
-    if (auto& dst = units.at(to.x + to.y * map_grid_size.x); dst == nullptr)
-    {
-        dst = std::move(units.at(from.x + from.y * map_grid_size.x));
     }
 }
