@@ -29,4 +29,4 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(tiledcpp)
 
-add_subdirectory(advanced_wars_sample)
+add_subdirectory(tactical_wars_sample)
