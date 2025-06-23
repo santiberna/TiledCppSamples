@@ -10,7 +10,7 @@ target_include_directories(AdvancedWarsSample
     PRIVATE ""
 )
 
-target_link_libraries(AdvancedWarsSample
+target_link_libraries(TacticalWarsSample
     PRIVATE
         Framework2D
         TiledCpp
