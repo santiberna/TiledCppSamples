@@ -1,12 +1,12 @@
-add_executable(AdvancedWarsSample)
+add_executable(TacticalWarsSample)
 
 file(GLOB_RECURSE sources CONFIGURE_DEPENDS "*.cpp" "*.hpp")
-target_sources(AdvancedWarsSample
+target_sources(TacticalWarsSample
     PRIVATE
         ${sources}
 )
 
-target_include_directories(AdvancedWarsSample
+target_include_directories(TacticalWarsSample
     PRIVATE ""
 )
 
