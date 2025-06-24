@@ -11,6 +11,8 @@ An Advanced Wars / Battle for Wesnoth inspired demo:
 
 [![Watch the video](https://img.youtube.com/vi/PjQKm6MQ--w/hqdefault.jpg)](https://www.youtube.com/watch?v=PjQKm6MQ--w)
 
+[Video](https://img.youtube.com/vi/PjQKm6MQ--w/hqdefault.jpg)](https://www.youtube.com/watch?v=PjQKm6MQ--w)
+
 ## Licenses
 
 Code is licensed under MIT license.
